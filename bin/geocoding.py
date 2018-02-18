@@ -53,74 +53,78 @@ class geocodingCommand(StreamingCommand):
     def stream(self, records):
         pool = ThreadPoolExecutor(self.threads)
 
-        def geocoding_query(record_dict):
-            params = URL_PARAMS.copy()
+        def geocoding_query(record):
+            output_fields = [
+                "json",
+                "time_ms",
+                "msg",
+                "lat",
+                "lon",
+                "formatted_address",
+                "street_number",
+                "route",
+                "locality",
+                "administrative_area_level_1",
+                "administrative_area_level_2",
+                "country",
+                "postal_code",
+            ]
 
-            record = record_dict["record"]
-            input_field = record_dict["field"]
-            input_value = record[input_field].strip()
+            for key in self.fieldnames:
+                # You have to set all possible output fields to ""
+                # otherwise if the first row doesn't set the fields
+                # then the rest of the rows can't set it.
+                for field in output_fields:
+                    record[key + "_" + field] = ""
 
-            output_fields = {}
-            output_fields[input_field + "_json"] = ""
-            output_fields[input_field + "_time_ms"] = ""
-            output_fields[input_field + "_msg"] = ""
-            output_fields[input_field + "_lat"] = ""
-            output_fields[input_field + "_lon"] = ""
-            output_fields[input_field + "_formatted_address"] = ""
-            output_fields[input_field + "_street_number"] = ""
-            output_fields[input_field + "_route"] = ""
-            output_fields[input_field + "_locality"] = ""
-            output_fields[input_field + "_administrative_area_level_2"] = ""
-            output_fields[input_field + "_administrative_area_level_1"] = ""
-            output_fields[input_field + "_country"] = ""
-            output_fields[input_field + "_postal_code"] = ""
+                params = URL_PARAMS.copy()
+                value = record[key].strip()
 
-            params.update({
-                "address": input_value
-            })
+                if value:
+                    params.update({
+                        "address": value
+                    })
 
-            try:
-                start = time.time()
-                r = requests.get(URL_BASE, params=params)
-                output_fields[input_field + "_time_ms"] = (time.time() - start) * 1000
+                    try:
+                        start = time.time()
+                        r = requests.get(URL_BASE, params=params)
+                        record[key + "_time_ms"] = (time.time() - start) * 1000
 
-                r.raise_for_status()
-                r_json = r.json()
-                status = r_json["status"]
-                output_fields[input_field + "_json"] = r.text
-                output_fields[input_field + "_msg"] = status
+                        r.raise_for_status()
+                        r_json = r.json()
+                        status = r_json["status"]
+                        record[key + "_json"] = r.text
+                        record[key + "_msg"] = status
 
-                logger.info("url: " + r.url)
-                logger.debug("response: " + r.text)
-                logger.debug("status: " + status)
+                        logger.info("url: " + r.url)
+                        logger.debug("response: " + r.text)
+                        logger.debug("status: " + status)
 
-                if status == "OK":
-                    logger.debug("result count: " + str(len(r_json["results"])))
-                    result = r_json["results"][0]
+                        if status == "OK":
+                            logger.debug("result count: " + str(len(r_json["results"])))
+                            result = r_json["results"][0]
 
-                    output_fields[input_field + "_lat"] = result["geometry"]["location"]["lat"]
-                    output_fields[input_field + "_lon"] = result["geometry"]["location"]["lng"]
-                    output_fields[input_field + "_formatted_address"] = result["formatted_address"]
+                            record[key + "_lat"] = result["geometry"]["location"]["lat"]
+                            record[key + "_lon"] = result["geometry"]["location"]["lng"]
+                            record[key + "_formatted_address"] = result["formatted_address"]
 
-                    for comp in result["address_components"]:
-                        key = comp["types"][0]
-                        output_fields[input_field + "_" + key] = comp["long_name"]
+                            for comp in result["address_components"]:
+                                name = comp["types"][0]
+                                record[key + "_" + name] = comp["long_name"]
 
-            except requests.exceptions.HTTPError as err:
-                output_fields[input_field + "_msg"] = err
-                pass
-            except requests.exceptions.RequestException as e:
-                output_fields[input_field + "_msg"] = e
-                pass
+                    except requests.exceptions.HTTPError as err:
+                        record[key + "_msg"] = err
+                        pass
+                    except requests.exceptions.RequestException as e:
+                        record[key + "_msg"] = e
+                        pass
 
-            record.update(output_fields)
             return record
 
         def thread(records):
             chunk = []
             for record in records:
-                for field in self.fieldnames:
-                    chunk.append(pool.submit(geocoding_query, {"record": record, "field": field}))
+                chunk.append(pool.submit(geocoding_query, record))
 
                 if len(chunk) >= self.threads:
                     yield chunk
@@ -136,8 +140,7 @@ class geocodingCommand(StreamingCommand):
                     yield f.result() # get result from Future
 
         # Now iterate over all results in same order as records
-        for i, result in enumerate(unchunk(thread(records))):
-            if (i + 1) % len(self.fieldnames) == 0:
-                yield result
+        for result in unchunk(thread(records)):
+            yield result
 
 dispatch(geocodingCommand, sys.argv, sys.stdin, sys.stdout, __name__)
