@@ -35,7 +35,7 @@ URL_PARAMS = {
     "key": geocoding_creds.api_key,
 }
 
-LOG_ROTATION_LOCATION = "/opt/splunk/var/log/splunk/geocoding_command.log"
+LOG_ROTATION_LOCATION = "/opt/splunk/var/log/splunk/command_geocoding.log"
 LOG_ROTATION_BYTES = 1 * 1024 * 1024
 LOG_ROTATION_LIMIT = 5
 
