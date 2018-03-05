@@ -75,7 +75,9 @@ class geocodingCommand(StreamingCommand):
                 # otherwise if the first row doesn't set the fields
                 # then the rest of the rows can't set it.
                 for field in output_fields:
-                    record[key + "_" + field] = ""
+                    field = key + "_" + output_field
+                    if field in record and not record[field]:
+	                record[field] = ""
 
                 params = URL_PARAMS.copy()
                 value = record[key].strip()

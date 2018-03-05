@@ -1,1 +1,2 @@
 bin/geocoding_creds.py
+*.pyc
