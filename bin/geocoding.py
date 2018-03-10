@@ -27,6 +27,7 @@ import logging
 import logging.handlers
 import requests
 import re
+import math
 
 import geocoding_creds
 
@@ -40,7 +41,7 @@ LOG_ROTATION_BYTES = 1 * 1024 * 1024
 LOG_ROTATION_LIMIT = 5
 
 logger = logging.getLogger("geocoding")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 handler = logging.handlers.RotatingFileHandler(LOG_ROTATION_LOCATION, maxBytes=LOG_ROTATION_BYTES, backupCount=LOG_ROTATION_LIMIT)
 handler.setFormatter(logging.Formatter("[%(levelname)s] (%(threadName)-10s) %(message)s"))
 logger.addHandler(handler)
@@ -49,11 +50,27 @@ logger.addHandler(handler)
 @Configuration()
 class geocodingCommand(StreamingCommand):
     threads = Option(require=False, default=8, validate=validators.Integer())
+    null_value = Option(require=False, default="null")
+    unit = Option(require=False, default="mi")
 
     def stream(self, records):
         pool = ThreadPoolExecutor(self.threads)
 
+        def haversine_area(lat1, lon1, lat2, lon2, unit):
+            r = 6371 if unit == "km" else 3956
+            lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+
+            logger.debug("haversine_area")
+            logger.debug(r)
+            logger.debug(lat1)
+            logger.debug(lon1)
+            logger.debug(lat2)
+            logger.debug(lon2)
+
+            return (math.pi / 180) * r**2 * abs(math.sin(lat1) - math.sin(lat2)) * abs(lon1 - lon2)
+
         def geocoding_query(record):
+            # https://developers.google.com/maps/documentation/geocoding/intro#Types
             output_fields = [
                 "json",
                 "time_ms",
@@ -61,65 +78,113 @@ class geocodingCommand(StreamingCommand):
                 "lat",
                 "lon",
                 "formatted_address",
+                "viewport_area",
                 "street_number",
                 "route",
-                "locality",
+                "intersection",
+                "country",
                 "administrative_area_level_1",
                 "administrative_area_level_2",
-                "country",
+                "administrative_area_level_3",
+                "administrative_area_level_4",
+                "administrative_area_level_5",
+                "colloquial_area",
+                "locality",
+                "sub_locality_1",
+                "sub_locality_2",
+                "sub_locality_3",
+                "sub_locality_4",
+                "sub_locality_5",
+                "ward",
+                "sublocality",
+                "neighborhood",
+                "premise",
+                "subpremise",
                 "postal_code",
+                "postal_code_suffix",
+                "natural_feature",
+                "airport",
+                "park",
+                "point_of_interest",
             ]
 
             for key in self.fieldnames:
                 # You have to set all possible output fields to ""
                 # otherwise if the first row doesn't set the fields
                 # then the rest of the rows can't set it.
+
+                values = record[key]
+
                 for output_field in output_fields:
                     field = key + "_" + output_field
-                    if field in record and not record[field]:
-	                record[field] = ""
 
-                params = URL_PARAMS.copy()
-                value = record[key].strip()
+                    if values or field not in record:
+                        record[field] = []
 
-                if value:
-                    params.update({
-                        "address": value
-                    })
+                if isinstance(values, str):
+                    values = [values]
 
-                    try:
-                        start = time.time()
-                        r = requests.get(URL_BASE, params=params)
-                        record[key + "_time_ms"] = (time.time() - start) * 1000
+                logger.debug("values:")
+                logger.debug(values)
 
-                        r.raise_for_status()
-                        r_json = r.json()
-                        status = r_json["status"]
-                        record[key + "_json"] = r.text
-                        record[key + "_msg"] = status
+                for value in values:
+                    address = value.strip()
 
-                        logger.info("url: " + r.url)
-                        logger.debug("response: " + r.text)
-                        logger.debug("status: " + status)
+                    if address:
+                        for output_field in output_fields:
+                            field = key + "_" + output_field
+                            record[field].append(self.null_value)
 
-                        if status == "OK":
-                            logger.debug("result count: " + str(len(r_json["results"])))
-                            result = r_json["results"][0]
+                        logger.debug("administrative_area_level_2:")
+                        logger.debug(record[key + "_administrative_area_level_2"])
 
-                            record[key + "_lat"] = result["geometry"]["location"]["lat"]
-                            record[key + "_lon"] = result["geometry"]["location"]["lng"]
-                            record[key + "_formatted_address"] = result["formatted_address"]
+                        params = URL_PARAMS.copy()
+                        params.update({
+                            "address": address
+                        })
 
-                            for comp in result["address_components"]:
-                                name = comp["types"][0]
-                                record[key + "_" + name] = comp["long_name"]
+                        try:
+                            start = time.time()
+                            r = requests.get(URL_BASE, params=params)
+                            record[key + "_time_ms"][-1] = (time.time() - start) * 1000
 
-                    except requests.exceptions.HTTPError as err:
-                        record[key + "_msg"] = err
-                        pass
-                    except requests.exceptions.RequestException as e:
-                        record[key + "_msg"] = e
-                        pass
+                            r.raise_for_status()
+                            r_json = r.json()
+                            status = r_json["status"]
+                            record[key + "_json"][-1] = r.text
+                            record[key + "_msg"][-1] = status
+
+                            #logger.info("url: " + r.url)
+                            #logger.debug("response: " + r.text)
+                            #logger.debug("status: " + status)
+
+                            if status == "OK":
+                                #logger.debug("result count: " + str(len(r_json["results"])))
+                                result = r_json["results"][0]
+
+                                record[key + "_lat"][-1] = result["geometry"]["location"]["lat"]
+                                record[key + "_lon"][-1] = result["geometry"]["location"]["lng"]
+                                record[key + "_formatted_address"][-1] = result["formatted_address"]
+
+                                lat1 = result["geometry"]["viewport"]["northeast"]["lat"]
+                                lon1 = result["geometry"]["viewport"]["northeast"]["lng"]
+                                lat2 = result["geometry"]["viewport"]["southwest"]["lat"]
+                                lon2 = result["geometry"]["viewport"]["southwest"]["lng"]
+
+                                record[key + "_viewport_area"][-1] = haversine_area(lat1, lon1, lat2, lon2, self.unit)
+
+                                for component in result["address_components"]:
+                                    name = component["types"][0]
+
+                                    if name in output_fields:
+                                        record[key + "_" + name][-1] = component["long_name"]
+
+                        except requests.exceptions.HTTPError as err:
+                            record[key + "_msg"][-1] = err
+                            pass
+                        except requests.exceptions.RequestException as e:
+                            record[key + "_msg"][-1] = e
+                            pass
 
             return record
 
