@@ -60,11 +60,11 @@ class geocodingCommand(StreamingCommand):
             r = 3959 if unit == "mi" else 6371
             lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
 
-            logger.debug("haversine_area")
-            logger.debug(lat1)
-            logger.debug(lon1)
-            logger.debug(lat2)
-            logger.debug(lon2)
+            #logger.debug("haversine_area")
+            #logger.debug(lat1)
+            #logger.debug(lon1)
+            #logger.debug(lat2)
+            #logger.debug(lon2)
 
             return r**2 * abs(math.sin(lat1) - math.sin(lat2)) * abs(lon1 - lon2)
 
