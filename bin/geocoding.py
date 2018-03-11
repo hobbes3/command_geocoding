@@ -50,24 +50,23 @@ logger.addHandler(handler)
 @Configuration()
 class geocodingCommand(StreamingCommand):
     threads = Option(require=False, default=8, validate=validators.Integer())
-    null_value = Option(require=False, default="null")
+    null_value = Option(require=False, default="")
     unit = Option(require=False, default="mi")
 
     def stream(self, records):
         pool = ThreadPoolExecutor(self.threads)
 
         def haversine_area(lat1, lon1, lat2, lon2, unit):
-            r = 6371 if unit == "km" else 3956
+            r = 3959 if unit == "mi" else 6371
             lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
 
             logger.debug("haversine_area")
-            logger.debug(r)
             logger.debug(lat1)
             logger.debug(lon1)
             logger.debug(lat2)
             logger.debug(lon2)
 
-            return (math.pi / 180) * r**2 * abs(math.sin(lat1) - math.sin(lat2)) * abs(lon1 - lon2)
+            return r**2 * abs(math.sin(lat1) - math.sin(lat2)) * abs(lon1 - lon2)
 
         def geocoding_query(record):
             # https://developers.google.com/maps/documentation/geocoding/intro#Types
@@ -77,8 +76,12 @@ class geocodingCommand(StreamingCommand):
                 "msg",
                 "lat",
                 "lon",
-                "formatted_address",
+                "viewport_ne_lat",
+                "viewport_ne_lon",
+                "viewport_sw_lat",
+                "viewport_sw_lon",
                 "viewport_area",
+                "formatted_address",
                 "street_number",
                 "route",
                 "intersection",
@@ -124,9 +127,6 @@ class geocodingCommand(StreamingCommand):
                 if isinstance(values, str):
                     values = [values]
 
-                logger.debug("values:")
-                logger.debug(values)
-
                 for value in values:
                     address = value.strip()
 
@@ -134,9 +134,6 @@ class geocodingCommand(StreamingCommand):
                         for output_field in output_fields:
                             field = key + "_" + output_field
                             record[field].append(self.null_value)
-
-                        logger.debug("administrative_area_level_2:")
-                        logger.debug(record[key + "_administrative_area_level_2"])
 
                         params = URL_PARAMS.copy()
                         params.update({
@@ -171,6 +168,10 @@ class geocodingCommand(StreamingCommand):
                                 lat2 = result["geometry"]["viewport"]["southwest"]["lat"]
                                 lon2 = result["geometry"]["viewport"]["southwest"]["lng"]
 
+                                record[key + "_viewport_ne_lat"][-1] = lat1
+                                record[key + "_viewport_ne_lon"][-1] = lon1
+                                record[key + "_viewport_sw_lat"][-1] = lat2
+                                record[key + "_viewport_sw_lon"][-1] = lon2
                                 record[key + "_viewport_area"][-1] = haversine_area(lat1, lon1, lat2, lon2, self.unit)
 
                                 for component in result["address_components"]:
