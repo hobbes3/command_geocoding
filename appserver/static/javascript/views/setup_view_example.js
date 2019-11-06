@@ -442,7 +442,7 @@ owner: "-", app: "command_geocoding"
                     {
                         password: value_to_encrypt,
                         name: username,
-                        realm: realm,
+                        realm: "command_geocoding",
                     },
                     function(error_response, response) {
                         // Do nothing
