@@ -50,9 +50,6 @@ class geocodingCommand(StreamingCommand):
     threads = Option(require=False, default=8, validate=validators.Integer())
     null_value = Option(require=False, default="")
     unit = Option(require=False, default="mi")
-    APIKey = Option(require=False, default="")
-
-
 
     def stream(self, records):
         service = self.service
@@ -60,11 +57,8 @@ class geocodingCommand(StreamingCommand):
 
         for credential in storage_passwords:
             if credential.content.get('realm') == "command_geocoding":
-                #usercreds = {'username': credential.content.get('username'),
-                #             'password': credential.content.get('clear_password'),
-                #             'realm': credential.content.get('realm')}
-                #logger(usercreds)
                 self.APIKey = credential.content.get('clear_password')
+
         pool = ThreadPoolExecutor(self.threads)
         def haversine_area(lat1, lon1, lat2, lon2, unit):
             r = 3959 if unit == "mi" else 6371
