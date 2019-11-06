@@ -19,6 +19,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import app
 from splunklib.searchcommands import dispatch, StreamingCommand, Configuration, Option, validators
 
+
 from concurrent.futures import ThreadPoolExecutor
 import sys
 import time
@@ -28,15 +29,10 @@ import logging.handlers
 import requests
 import re
 import math
-
-import geocoding_creds
-
-URL_BASE = "https://maps.googleapis.com/maps/api/geocode/json"
-URL_PARAMS = {
-    "key": geocoding_creds.api_key,
-}
-
-LOG_ROTATION_LOCATION = "/opt/splunk/var/log/splunk/command_geocoding.log"
+import splunk.Intersplunk
+import splunklib.client as client
+import splunklib.searchcommands as searchcommands
+LOG_ROTATION_LOCATION = "/Users/roconnor/Downloads/splunk/var/log/splunk/command_geocoding.log"
 LOG_ROTATION_BYTES = 1 * 1024 * 1024
 LOG_ROTATION_LIMIT = 5
 
@@ -46,20 +42,33 @@ handler = logging.handlers.RotatingFileHandler(LOG_ROTATION_LOCATION, maxBytes=L
 handler.setFormatter(logging.Formatter("[%(levelname)s] (%(threadName)-10s) %(message)s"))
 logger.addHandler(handler)
 
+URL_BASE = "https://maps.googleapis.com/maps/api/geocode/json"
+
 
 @Configuration()
 class geocodingCommand(StreamingCommand):
     threads = Option(require=False, default=8, validate=validators.Integer())
     null_value = Option(require=False, default="")
     unit = Option(require=False, default="mi")
+    APIKey = Option(require=False, default="")
+
+
 
     def stream(self, records):
-        pool = ThreadPoolExecutor(self.threads)
+        service = self.service
+        storage_passwords = service.storage_passwords
 
+        for credential in storage_passwords:
+            if credential.content.get('realm') == "command_geocoding":
+                #usercreds = {'username': credential.content.get('username'),
+                #             'password': credential.content.get('clear_password'),
+                #             'realm': credential.content.get('realm')}
+                #logger(usercreds)
+                self.APIKey = credential.content.get('clear_password')
+        pool = ThreadPoolExecutor(self.threads)
         def haversine_area(lat1, lon1, lat2, lon2, unit):
             r = 3959 if unit == "mi" else 6371
             lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
-
             #logger.debug("haversine_area")
             #logger.debug(lat1)
             #logger.debug(lon1)
@@ -135,6 +144,9 @@ class geocodingCommand(StreamingCommand):
                             field = key + "_" + output_field
                             record[field].append(self.null_value)
 
+                        URL_PARAMS = {
+                            "key": self.APIKey,
+                        }
                         params = URL_PARAMS.copy()
                         params.update({
                             "address": address
@@ -211,4 +223,9 @@ class geocodingCommand(StreamingCommand):
         for result in unchunk(thread(records)):
             yield result
 
-dispatch(geocodingCommand, sys.argv, sys.stdin, sys.stdout, __name__)
+if __name__ == "__main__":
+    dispatch(geocodingCommand, sys.argv, sys.stdin, sys.stdout, __name__)
+
+if __name__ == "__GETINFO__":
+    dispatch(geocodingCommand, sys.argv, sys.stdin, sys.stdout, __name__)
+
