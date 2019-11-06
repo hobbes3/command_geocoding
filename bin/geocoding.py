@@ -32,9 +32,9 @@ import math
 import splunk.Intersplunk
 import splunklib.client as client
 import splunklib.searchcommands as searchcommands
+import os
 
-#TO DO: Make this log rotation work with the $SPLUNK_HOME system variable
-LOG_ROTATION_LOCATION = "/opt/splunk/var/log/splunk/command_geocoding.log"
+LOG_ROTATION_LOCATION = os.environ['SPLUNK_HOME'] + "/var/log/splunk/command_geocoding.log"
 LOG_ROTATION_BYTES = 1 * 1024 * 1024
 LOG_ROTATION_LIMIT = 5
 
