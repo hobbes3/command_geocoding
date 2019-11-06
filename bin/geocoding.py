@@ -32,7 +32,9 @@ import math
 import splunk.Intersplunk
 import splunklib.client as client
 import splunklib.searchcommands as searchcommands
-LOG_ROTATION_LOCATION = "/Users/roconnor/Downloads/splunk/var/log/splunk/command_geocoding.log"
+
+#TO DO: Make this log rotation work with the $SPLUNK_HOME system variable
+LOG_ROTATION_LOCATION = "/opt/splunk/var/log/splunk/command_geocoding.log"
 LOG_ROTATION_BYTES = 1 * 1024 * 1024
 LOG_ROTATION_LIMIT = 5
 
@@ -58,6 +60,7 @@ class geocodingCommand(StreamingCommand):
         for credential in storage_passwords:
             if credential.content.get('realm') == "command_geocoding":
                 self.APIKey = credential.content.get('clear_password')
+                logger.debug("Found API Key")
 
         pool = ThreadPoolExecutor(self.threads)
         def haversine_area(lat1, lon1, lat2, lon2, unit):
