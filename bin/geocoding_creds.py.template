@@ -1,5 +1,0 @@
-#!/usr/bin/env python
-
-# Rename this file to geocoding_creds.py
-
-api_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

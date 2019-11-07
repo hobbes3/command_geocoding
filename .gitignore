@@ -1,2 +1,5 @@
 bin/geocoding_creds.py
 *.pyc
+local/
+metadata/local.meta
+*.DS_Store
