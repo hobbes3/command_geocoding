@@ -33,6 +33,7 @@ import splunk.Intersplunk
 import splunklib.client as client
 import splunklib.searchcommands as searchcommands
 import os
+from math import pi 
 
 LOG_ROTATION_LOCATION = os.environ['SPLUNK_HOME'] + "/var/log/splunk/command_geocoding.log"
 LOG_ROTATION_BYTES = 1 * 1024 * 1024
@@ -64,6 +65,8 @@ class geocodingCommand(StreamingCommand):
 
         pool = ThreadPoolExecutor(self.threads)
         def haversine_area(lat1, lon1, lat2, lon2, unit):
+            #A = 2*pi*R^2 |sin(lat1)-sin(lat2)| |lon1-lon2|/360
+            #A  = (pi/180)R^2 |sin(lat1)-sin(lat2)| |lon1-lon2|
             r = 3959 if unit == "mi" else 6371
             lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
             #logger.debug("haversine_area")
@@ -71,9 +74,9 @@ class geocodingCommand(StreamingCommand):
             #logger.debug(lon1)
             #logger.debug(lat2)
             #logger.debug(lon2)
-
-            return r**2 * abs(math.sin(lat1) - math.sin(lat2)) * abs(lon1 - lon2)
-
+            return  (((pi/180)*r**2)*abs(math.sin(lat1)-math.sin(lat2))*abs(lon1-lon2))*r
+            #return r**2 * abs(math.sin(lat1) - math.sin(lat2)) * abs(lon1 - lon2)
+	
         def geocoding_query(record):
             # https://developers.google.com/maps/documentation/geocoding/intro#Types
             output_fields = [
