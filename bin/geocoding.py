@@ -34,7 +34,7 @@ import splunklib.client as client
 import splunklib.searchcommands as searchcommands
 import os
 
-LOG_ROTATION_LOCATION = os.environ['SPLUNK_HOME'] + "/var/log/splunk/command_geocoding.log"
+LOG_ROTATION_LOCATION = os.environ['SPLUNK_HOME'] + "/var/log/splunk/gmap_api.log"
 LOG_ROTATION_BYTES = 1 * 1024 * 1024
 LOG_ROTATION_LIMIT = 5
 
@@ -58,7 +58,7 @@ class geocodingCommand(StreamingCommand):
         storage_passwords = service.storage_passwords
 
         for credential in storage_passwords:
-            if credential.content.get('realm') == "command_geocoding":
+            if credential.content.get('realm') == "gmap_api":
                 self.APIKey = credential.content.get('clear_password')
                 logger.debug("Found API Key")
 

@@ -39,8 +39,8 @@ define(
                 var api_key_input_element = jquery("input[name=api_key]");
                 var api_key = api_key_input_element.val();
                 var sanitized_api_key = api_key;
-				
-				
+
+
                 var api_key_description_input_element = jquery("input[name=api_key_description]");
                 var api_key_description = api_key_description_input_element.val();
 
@@ -63,7 +63,7 @@ define(
 
             // This is where the main setup process occurs
             perform_setup: async function perform_setup(splunk_js_sdk, api_key_description, api_key) {
-                var app_name = "command_geocoding";
+                var app_name = "gmap_api";
 
                 var application_name_space = {
                     owner: "nobody",
@@ -132,17 +132,17 @@ define(
                 // /servicesNS/<NAMESPACE_USERNAME>/<SPLUNK_APP_NAME>/storage/passwords/<REALM>%3A<USERNAME>%3A
                 var storage_passwords_accessor = splunk_js_sdk_service.storagePasswords(
                     {
-owner: "-", app: "command_geocoding"
+owner: "-", app: "gmap_api"
                     },
                 );
 //               await storage_passwords_accessor.fetch();
-// 
+//
 //                 var does_storage_password_exist = this.does_storage_password_exist(
 //                     storage_passwords_accessor,
 //                     api_key_description,
 //                     api_key_description,
 //                 );
-// 
+//
 //                 if (does_storage_password_exist) {
 //                     await this.delete_storage_password(
 //                         storage_passwords_accessor,
@@ -162,7 +162,7 @@ owner: "-", app: "command_geocoding"
             },
 
             complete_setup: async function complete_setup(splunk_js_sdk_service) {
-                var app_name = "command_geocoding";
+                var app_name = "gmap_api";
                 var configuration_file_name = "app";
                 var stanza_name = "install";
                 var properties_to_update = {
@@ -442,14 +442,14 @@ owner: "-", app: "command_geocoding"
                     {
                         password: value_to_encrypt,
                         name: username,
-                        realm: "command_geocoding",
+                        realm: "gmap_api",
                     },
                     function(error_response, response) {
                         // Do nothing
                     },
                 );
             },
-            
+
             // ----------------------------------
             // Deletion Methods
             // ----------------------------------
@@ -470,7 +470,7 @@ owner: "-", app: "command_geocoding"
                 return sanitized_string;
             },
 
-//          
+//
 
             validate_inputs: function validate_inputs(api_key_description, api_key) {
                 var error_messages = [];
